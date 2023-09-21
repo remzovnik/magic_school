@@ -1,0 +1,56 @@
+deployment:
+  name: dev1-school2
+  replicaCount: 1
+  deadlinesec: 60
+  restartPolicy: Always
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 100%
+      maxUnavailable: 0
+  image:
+    repository: gitlab_ci
+    tag: gitlab_ci
+    pullPolicy: Always
+  ports:
+  - name: web
+    containerPort: 3000
+    protocol: TCP
+  liveness:
+    httpGet:
+      path: /api/health/live
+      port: 3000
+    initialDelaySeconds: 15
+    timeoutSeconds: 10
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  tolerations: {}
+  nodeSelector: {}
+  affinity: {}
+  secrets: []
+  
+
+
+service:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: web
+
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host:  dev2-miniapp-wizard.yarusdev.ru
+      paths: /
+      svc_name: dev1-school2
+      svc_port: 3000
+      secretName: yarusdev-tls

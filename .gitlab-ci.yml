@@ -1,0 +1,76 @@
+include:
+  - project: infrastructure/ci.cd/common
+    ref: master
+    file:
+      - common.yml
+
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - when: never
+
+
+build:
+  extends: .base_build
+  variables:
+    DOCKERFILE: "Dockerfile"
+    DOCKERFILE_CONTEXT: "${CI_PROJECT_DIR}"
+    REGISTRY_URL: harbor.yarustech.ru/development-irus/frontend/school2
+    IMAGE_TAG: "${ENV}-${CI_COMMIT_SHORT_SHA}"
+    BUILD_ARGS: "ENV:${ENV}"
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'master' || $CI_COMMIT_REF_NAME == 'master'
+      variables:
+        ENV: "prod"
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'dev' || $CI_COMMIT_REF_NAME == 'dev'
+      variables:
+        ENV: "dev"
+    - if: $CI_COMMIT_REF_NAME =~ /^YRS/
+      variables:
+        ENV: "dev"
+      when: manual
+
+
+deploy_dev1:
+  extends: .base_deploy
+  variables:
+    PROJECT: "dev1-school2"
+    CLUSTER: "dev"
+    NAMESPACE: "frontend"
+    HELM_VALUE: "${CI_PROJECT_DIR}/ci-deploy/dev/dev1-values.yaml"
+    REGISTRY_URL: harbor.yarustech.ru/development-irus/frontend/school2
+    IMAGE_TAG: "${ENV}-${CI_COMMIT_SHORT_SHA}"
+  rules:
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'master'
+      variables:
+        ENV: "prod"
+      when: manual
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == 'dev' || $CI_COMMIT_REF_NAME == 'dev'
+      variables:
+        ENV: "dev"
+      when: manual
+    - if: $CI_COMMIT_REF_NAME =~ /^YRS/
+      variables:
+        ENV: "dev"
+      when: manual
+  needs:
+    - build
+
+deploy_prod:
+  extends: .base_deploy
+  variables:
+    PROJECT: "prod-school2"
+    CLUSTER: "prod"
+    NAMESPACE: "frontend"
+    HELM_VALUE: "${CI_PROJECT_DIR}/ci-deploy/prod/prod-values.yaml"
+    REGISTRY_URL: harbor.yarustech.ru/development-irus/frontend/school2
+    IMAGE_TAG: "prod-${CI_COMMIT_SHORT_SHA}"
+    ENV: "prod"
+  rules:
+    - if: $CI_COMMIT_REF_NAME == 'master'
+      when: manual
+  needs:
+    - build
